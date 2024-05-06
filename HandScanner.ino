@@ -2,7 +2,7 @@
 
 Adafruit_AW9523 ledDriver;
 
-long unsigned timingVectorMillis[] = {210, 47, 24, 8, 16, 16, 17, 47, 210};
+long unsigned timingVector[] = {210, 47, 24, 8, 16, 16, 17, 47, 210};  // In Milliseconds
 long unsigned timeBetweenUpAndDownScan = 300;
 int scanIndex = 0;
 
@@ -53,7 +53,7 @@ void scannerLoop() {
     ledDriver.digitalWrite(indexToOuput[scanIndex], HIGH);
     scanIndex++;
     ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
-    nextFrameTime = timingVectorMillis[scanIndex];
+    nextFrameTime = timingVector[scanIndex];
     scannerAnimationTimer = 0;
     Serial.println(scanIndex);
   }
@@ -65,7 +65,7 @@ void startHandScan() {
   clearAllOutputs();
   scanIndex = 0;
   ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
-  nextFrameTime = timingVectorMillis[scanIndex];
+  nextFrameTime = timingVector[scanIndex];
   scannerAnimationTimer = 0;
   scanRunning = true;
 
