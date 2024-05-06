@@ -2,7 +2,7 @@
 
 Adafruit_AW9523 ledDriver;
 
-long unsigned timingVector[] = {210, 47, 24, 8, 16, 16, 17, 47, 210};  // In Milliseconds
+long unsigned timingVector[] = {210, 48, 25, 9, 16, 17, 17, 48, 210};  // In Milliseconds
 long unsigned timeBetweenUpAndDownScan = 300;
 int scanIndex = 0;
 
@@ -38,32 +38,68 @@ void scannerSetup() {
 
 }
 
-void scannerLoop() {
+void scanDownLoop() {
 
   // for (int i = 0; i < NUM_NOODS; ++i) {
   //   //aw.analogWrite(indexToOuput[i], 0);
   //   ledDriver.digitalWrite(indexToOuput[i], HIGH);
   // }
 
-  if (!scanRunning) {
+  if (myState != ScannerState::SCAN_DOWN) {
     return;
   }
 
   if (scannerAnimationTimer > nextFrameTime && scanIndex < NUM_NOODS) {
     ledDriver.digitalWrite(indexToOuput[scanIndex], HIGH);
     scanIndex++;
+    if (scanIndex >= NUM_NOODS) { setState(ScannerState::SCAN_TRANSITION); return; }
     ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
     nextFrameTime = timingVector[scanIndex];
     scannerAnimationTimer = 0;
-    Serial.println(scanIndex);
+    DEBUG_PRINTLN(scanIndex);
   }
 }
 
 
-void startHandScan() {
+void scanUpLoop() {
+
+  // for (int i = 0; i < NUM_NOODS; ++i) {
+  //   //aw.analogWrite(indexToOuput[i], 0);
+  //   ledDriver.digitalWrite(indexToOuput[i], HIGH);
+  // }
+
+  if (myState != ScannerState::SCAN_UP) {
+    return;
+  }
+
+  if (scannerAnimationTimer > nextFrameTime && scanIndex >= 0) {
+    ledDriver.digitalWrite(indexToOuput[scanIndex], HIGH);
+    scanIndex--;
+    if (scanIndex < 0) { setState(ScannerState::SHUFFLE_SCAN); return; }
+    ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
+    nextFrameTime = timingVector[scanIndex];
+    scannerAnimationTimer = 0;
+    DEBUG_PRINTLN(scanIndex);
+  }
+}
+
+
+void startHandScanDown() {
 
   clearAllOutputs();
   scanIndex = 0;
+  ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
+  nextFrameTime = timingVector[scanIndex];
+  scannerAnimationTimer = 0;
+  scanRunning = true;
+
+}
+
+
+void startHandScanUp() {
+
+  clearAllOutputs();
+  scanIndex = NUM_NOODS-1;
   ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
   nextFrameTime = timingVector[scanIndex];
   scannerAnimationTimer = 0;

@@ -30,7 +30,7 @@ typedef enum class ScannerState
   IDLE              = 0,
   ATTRACT           = 1,
   SCAN_DOWN         = 2,
-  SCAN_TANSITION    = 3,
+  SCAN_TRANSITION   = 3,
   SCAN_UP           = 4,
   SHUFFLE_SCAN      = 5,
   TIKTOK_SCAN       = 6,
@@ -44,9 +44,9 @@ uint16_t stateTime[] =
 {
   0,                // IDLE
   0,                // ATTRACT
-  0,                // SCAN_DOWN
-  0,                // SCAN_TANSITION
-  0,                // SCAN_UP
+  500,              // SCAN_DOWN
+  1,                // SCAN_TRANSITION
+  500,              // SCAN_UP
   0,                // SHUFFLE_SCAN
   0,                // TIKTOK_SCAN
   0,                // UNLOCKED
@@ -65,6 +65,9 @@ ScannerState stateHistory[historyDepth];
 // so we know when buttons are 'released'
 uint16_t lastTouched = 0;
 uint16_t currTouched = 0;
+
+
+elapsedMillis stateTimer;
 
 
 
@@ -97,10 +100,15 @@ void loop() {
     case ScannerState::ATTRACT:
       break;
     case ScannerState::SCAN_DOWN:
+      scanDownLoop();
       break;
-    case ScannerState::SCAN_TANSITION:
+    case ScannerState::SCAN_TRANSITION:
+      if (stateTimer > stateTime[(int)ScannerState::SCAN_TRANSITION]) {
+        setState(ScannerState::SCAN_UP);
+      }
       break;
     case ScannerState::SCAN_UP:
+      scanUpLoop();
       break;
     case ScannerState::SHUFFLE_SCAN:
       break;
@@ -123,7 +131,7 @@ void loop() {
     // it if *is* touched and *wasnt* touched before, alert!
     if ((currTouched & _BV(i)) && !(lastTouched & _BV(i)) ) {
       DEBUG_PRINT(i); DEBUG_PRINTLN(" touched");
-      startHandScan();
+      setState(ScannerState::SCAN_DOWN);
     }
     // if it *was* touched and now *isnt*, alert!
     if (!(currTouched & _BV(i)) && (lastTouched & _BV(i)) ) {
@@ -135,7 +143,7 @@ void loop() {
   // reset our state
   lastTouched = currTouched;
 
-  scannerLoop();
+  
   
   delay(10);
 
@@ -159,9 +167,9 @@ void setState(ScannerState newState) {
       startScanDown();
       stateString = "SCAN_DOWN";
       break;
-    case ScannerState::SCAN_TANSITION:
+    case ScannerState::SCAN_TRANSITION:
       startScanTransition();
-      stateString = "SCAN_TANSITION";
+      stateString = "SCAN_TRANSITION";
       break;
     case ScannerState::SCAN_UP:
       startScanUp();
@@ -216,17 +224,17 @@ void startAttract() {
 
 
 void startScanDown() {
-
+  startHandScanDown();
 }
 
 
 void startScanTransition() {
-
+  stateTimer = 0;
 }
 
 
 void startScanUp() {
-
+  startHandScanUp();
 }
 
 
