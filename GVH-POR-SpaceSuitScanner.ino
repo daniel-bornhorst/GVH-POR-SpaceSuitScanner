@@ -34,11 +34,13 @@ typedef enum class ScannerState
   SCAN_UP           = 4,
   SCAN_UPSHUFFTRANS = 5,
   SHUFFLE_SCAN      = 6,
-  SCAN_SHUFFTOKTRANS= 7,
-  TIKTOK_SCAN       = 8,
-  UNLOCKED          = 9,
-  SUIT_SHOWCASE     = 10,
-  COOLDOWN          = 11
+  SCAN_SHUFFTODEEP  = 7,
+  DEEP_SCAN         = 8,
+  SCAN_DEEPTOTIKTOK = 9,
+  TIKTOK_SCAN       = 10,
+  UNLOCKED          = 11,
+  SUIT_SHOWCASE     = 12,
+  COOLDOWN          = 13
 
 } scanner_state_;
 
@@ -47,12 +49,14 @@ uint16_t stateTime[] =
   0,                // IDLE
   0,                // ATTRACT
   500,              // SCAN_DOWN
-  1,                // SCAN_UPDOWNTRANS
+  10,               // SCAN_UPDOWNTRANS
   500,              // SCAN_UP
-  0,                // SCAN_UPSHUFFTRANS
-  0,                // SHUFFLE_SCAN
-  0,                // SCAN_SHUFFTOKTRANS
-  0,                // TIKTOK_SCAN
+  1000,              // SCAN_UPSHUFFTRANS
+  50,               // SHUFFLE_SCAN
+  250,              // SCAN_SHUFFTODEEP
+  250,              // DEEP_SCAN
+  500,              // SCAN_DEEPTOTIKTOK
+  250,              // TIKTOK_SCAN
   0,                // UNLOCKED
   0,                // SUIT_SHOWCASE
   0                 // COOLDOWN
@@ -63,6 +67,15 @@ ScannerState myState = ScannerState::IDLE;
 
 const uint8_t historyDepth = 10;
 ScannerState stateHistory[historyDepth];
+
+const uint8_t shuffleCount = 25;
+uint8_t shuffleCounter = 0;
+
+const uint8_t tikTokCount = 5;
+uint8_t tikTokCounter = 0;
+
+const uint8_t deepCount = 9;
+uint8_t deepCounter = 0;
 
 
 // Keeps track of the last pins touched
@@ -115,12 +128,45 @@ void loop() {
       scanUpLoop();
       break;
     case ScannerState::SCAN_UPSHUFFTRANS:
+      if (stateTimer > stateTime[(int)ScannerState::SCAN_UPSHUFFTRANS]) {
+        setState(ScannerState::SHUFFLE_SCAN);
+      }
       break;
     case ScannerState::SHUFFLE_SCAN:
+      if (stateTimer > stateTime[(int)ScannerState::SHUFFLE_SCAN] && shuffleCounter < shuffleCount) {
+        shuffleScanLoop();
+        shuffleCounter++;
+        stateTimer = 0;
+      }
+      else if (shuffleCounter >= shuffleCount) { setState(ScannerState::SCAN_SHUFFTODEEP); }
       break;
-    case ScannerState::SCAN_SHUFFTOKTRANS:
+    case ScannerState::SCAN_SHUFFTODEEP:
+      if (stateTimer > stateTime[(int)ScannerState::SCAN_SHUFFTODEEP]) {
+        setState(ScannerState::DEEP_SCAN);
+      }
+      break;
+    case ScannerState::DEEP_SCAN:
+      if (stateTimer > stateTime[(int)ScannerState::DEEP_SCAN] && deepCounter < deepCount) {
+        deepScanLoop();
+        deepCounter++;
+        stateTimer = 0;
+      }
+      else if (deepCounter >= deepCount) {
+        setState(ScannerState::SCAN_DEEPTOTIKTOK);
+      }
+      break;
+    case ScannerState::SCAN_DEEPTOTIKTOK:
+      if (stateTimer > stateTime[(int)ScannerState::SCAN_DEEPTOTIKTOK]) {
+        setState(ScannerState::TIKTOK_SCAN);
+      }
       break;
     case ScannerState::TIKTOK_SCAN:
+      if (stateTimer > stateTime[(int)ScannerState::TIKTOK_SCAN] && tikTokCounter < tikTokCount) {
+        tikTokScanLoop();
+        tikTokCounter++;
+        stateTimer = 0;
+      }
+      else if (tikTokCounter >= tikTokCount) { setState(ScannerState::UNLOCKED); }
       break;
     case ScannerState::UNLOCKED:
       break;
@@ -177,7 +223,7 @@ void setState(ScannerState newState) {
       stateString = "SCAN_DOWN";
       break;
     case ScannerState::SCAN_UPDOWNTRANS:
-      startScanTransition();
+      startScanUpDownTransition();
       stateString = "SCAN_UPDOWNTRANS";
       break;
     case ScannerState::SCAN_UP:
@@ -185,16 +231,24 @@ void setState(ScannerState newState) {
       stateString = "SCAN_UP";
       break;
     case ScannerState::SCAN_UPSHUFFTRANS:
-      startScanUp();
+      startScanUpToShuffleTransition();
       stateString = "SCAN_UPSHUFFTRANS";
       break;
     case ScannerState::SHUFFLE_SCAN:
       startShuffleScan();
       stateString = "SHUFFLE_SCAN";
       break;
-    case ScannerState::SCAN_SHUFFTOKTRANS:
-      startScanUp();
-      stateString = "SCAN_SHUFFTOKTRANS";
+    case ScannerState::SCAN_SHUFFTODEEP:
+      startSuffleToDeepTransition();
+      stateString = "SHUFFLE_TO_DEEP";
+      break;
+    case ScannerState::DEEP_SCAN:
+      stateString = "DEEP_SCAN";
+      startDeepScan();
+      break;
+    case ScannerState::SCAN_DEEPTOTIKTOK:
+      startDeepToTikTokeTransition();
+      stateString = "SCAN_DEEP_TO_TIK_TOK";
       break;
     case ScannerState::TIKTOK_SCAN:
       startTikTokScan();
@@ -245,7 +299,7 @@ void startScanDown() {
 }
 
 
-void startScanTransition() {
+void startScanUpDownTransition() {
   stateTimer = 0;
 }
 
@@ -255,13 +309,39 @@ void startScanUp() {
 }
 
 
-void startShuffleScan() {
+void startScanUpToShuffleTransition() {
+  stateTimer = 0;
+}
 
+
+void startShuffleScan() {
+  shuffleCounter = 0;
+  startShuffleHandScan();
+  stateTimer = 0;
+}
+
+
+void startSuffleToDeepTransition() {
+  stateTimer = 0;
+}
+
+
+void startDeepScan() {
+  startDeepHandScan();
+  deepCounter = 0;
+}
+
+
+void startDeepToTikTokeTransition() {
+  clearAllOutputs();
+  stateTimer = 0;
 }
 
 
 void startTikTokScan() {
-
+  tikTokCounter = 0;
+  startTikTokHandScan();
+  stateTimer = 0;
 }
 
 

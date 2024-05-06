@@ -1,4 +1,5 @@
 #define NUM_NOODS 9
+int halfNoods = NUM_NOODS/2;
 
 Adafruit_AW9523 ledDriver;
 
@@ -12,6 +13,8 @@ int indexToOuput[] = {1, 2, 3, 4, 5, 6, 7, 14, 15};
 elapsedMillis scannerAnimationTimer;
 
 long unsigned int nextFrameTime = 0;
+
+bool tikTokToggle = false;
 
 void scannerSetup() {
 
@@ -72,12 +75,40 @@ void scanUpLoop() {
   if (scannerAnimationTimer > nextFrameTime && scanIndex >= 0) {
     ledDriver.digitalWrite(indexToOuput[scanIndex], HIGH);
     scanIndex--;
-    if (scanIndex < 0) { setState(ScannerState::SHUFFLE_SCAN); return; }
+    if (scanIndex < 0) { setState(ScannerState::SCAN_UPSHUFFTRANS); return; }
     ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
     nextFrameTime = timingVector[scanIndex];
     scannerAnimationTimer = 0;
     DEBUG_PRINTLN(scanIndex);
   }
+}
+
+
+void shuffleScanLoop () {
+  ledDriver.digitalWrite(indexToOuput[scanIndex], HIGH);
+  scanIndex = random(0, NUM_NOODS-1);
+  ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
+}
+
+
+void deepScanLoop() {
+  clearAllOutputs();
+  ledDriver.digitalWrite(indexToOuput[deepCounter], LOW);
+}
+
+void tikTokScanLoop () {
+  clearAllOutputs();
+  if (tikTokToggle) {
+    for (int i = 0; i < halfNoods; ++i) {
+      ledDriver.digitalWrite(indexToOuput[i], LOW);
+    }
+  }
+  else {
+    for (int i = halfNoods; i < NUM_NOODS; ++i) {
+        ledDriver.digitalWrite(indexToOuput[i], LOW);
+    }
+  }
+  tikTokToggle = !tikTokToggle;
 }
 
 
@@ -88,7 +119,6 @@ void startHandScanDown() {
   ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
   nextFrameTime = timingVector[scanIndex];
   scannerAnimationTimer = 0;
-
 }
 
 
@@ -99,11 +129,30 @@ void startHandScanUp() {
   ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
   nextFrameTime = timingVector[scanIndex];
   scannerAnimationTimer = 0;
-
 }
 
-void stopHandScan() {
 
+void startShuffleHandScan () {
+  clearAllOutputs();
+  scanIndex = random(0, NUM_NOODS-1);
+  ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
+}
+
+
+void startDeepHandScan() {
+  clearAllOutputs();
+}
+
+
+void startTikTokHandScan () {
+  clearAllOutputs();
+  for (int i = 0; i < halfNoods; ++i) {
+    ledDriver.digitalWrite(indexToOuput[i], LOW);
+  }
+}
+
+
+void stopHandScan() {
   clearAllOutputs();
 }
 
