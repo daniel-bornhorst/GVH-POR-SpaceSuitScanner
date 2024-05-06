@@ -51,12 +51,12 @@ uint16_t stateTime[] =
   500,              // SCAN_DOWN
   10,               // SCAN_UPDOWNTRANS
   500,              // SCAN_UP
-  1000,              // SCAN_UPSHUFFTRANS
-  50,               // SHUFFLE_SCAN
-  250,              // SCAN_SHUFFTODEEP
+  500,              // SCAN_UPSHUFFTRANS
+  100,              // SHUFFLE_SCAN
+  500,              // SCAN_SHUFFTODEEP
   250,              // DEEP_SCAN
   500,              // SCAN_DEEPTOTIKTOK
-  250,              // TIKTOK_SCAN
+  400,              // TIKTOK_SCAN
   0,                // UNLOCKED
   0,                // SUIT_SHOWCASE
   0                 // COOLDOWN
@@ -68,14 +68,17 @@ ScannerState myState = ScannerState::IDLE;
 const uint8_t historyDepth = 10;
 ScannerState stateHistory[historyDepth];
 
+const uint8_t upDownCount = 1;
+uint8_t upDownCounter = 0;
+
 const uint8_t shuffleCount = 25;
 uint8_t shuffleCounter = 0;
 
-const uint8_t tikTokCount = 5;
-uint8_t tikTokCounter = 0;
-
 const uint8_t deepCount = 9;
 uint8_t deepCounter = 0;
+
+const uint8_t tikTokCount = 5;
+uint8_t tikTokCounter = 0;
 
 
 // Keeps track of the last pins touched
@@ -295,6 +298,7 @@ void startAttract() {
 
 
 void startScanDown() {
+  //upDownCounter = 0;
   startHandScanDown();
 }
 
@@ -333,7 +337,7 @@ void startDeepScan() {
 
 
 void startDeepToTikTokeTransition() {
-  clearAllOutputs();
+  //clearAllOutputs();
   stateTimer = 0;
 }
 

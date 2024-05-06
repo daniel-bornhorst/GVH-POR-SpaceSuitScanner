@@ -75,7 +75,14 @@ void scanUpLoop() {
   if (scannerAnimationTimer > nextFrameTime && scanIndex >= 0) {
     ledDriver.digitalWrite(indexToOuput[scanIndex], HIGH);
     scanIndex--;
-    if (scanIndex < 0) { setState(ScannerState::SCAN_UPSHUFFTRANS); return; }
+    if (scanIndex < 0) {
+      if (upDownCounter < upDownCount) {
+        upDownCounter++;
+        setState(ScannerState::SCAN_DOWN);
+        return;
+      }
+      else {setState(ScannerState::SCAN_UPSHUFFTRANS); upDownCounter = 0; return;}
+    }
     ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
     nextFrameTime = timingVector[scanIndex];
     scannerAnimationTimer = 0;
