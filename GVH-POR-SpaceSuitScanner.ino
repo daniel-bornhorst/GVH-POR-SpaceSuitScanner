@@ -30,13 +30,15 @@ typedef enum class ScannerState
   IDLE              = 0,
   ATTRACT           = 1,
   SCAN_DOWN         = 2,
-  SCAN_TRANSITION   = 3,
+  SCAN_UPDOWNTRANS  = 3,
   SCAN_UP           = 4,
-  SHUFFLE_SCAN      = 5,
-  TIKTOK_SCAN       = 6,
-  UNLOCKED          = 7,
-  SUIT_SHOWCASE     = 8,
-  COOLDOWN          = 9
+  SCAN_UPSHUFFTRANS = 5,
+  SHUFFLE_SCAN      = 6,
+  SCAN_SHUFFTOKTRANS= 7,
+  TIKTOK_SCAN       = 8,
+  UNLOCKED          = 9,
+  SUIT_SHOWCASE     = 10,
+  COOLDOWN          = 11
 
 } scanner_state_;
 
@@ -45,9 +47,11 @@ uint16_t stateTime[] =
   0,                // IDLE
   0,                // ATTRACT
   500,              // SCAN_DOWN
-  1,                // SCAN_TRANSITION
+  1,                // SCAN_UPDOWNTRANS
   500,              // SCAN_UP
+  0,                // SCAN_UPSHUFFTRANS
   0,                // SHUFFLE_SCAN
+  0,                // SCAN_SHUFFTOKTRANS
   0,                // TIKTOK_SCAN
   0,                // UNLOCKED
   0,                // SUIT_SHOWCASE
@@ -102,15 +106,19 @@ void loop() {
     case ScannerState::SCAN_DOWN:
       scanDownLoop();
       break;
-    case ScannerState::SCAN_TRANSITION:
-      if (stateTimer > stateTime[(int)ScannerState::SCAN_TRANSITION]) {
+    case ScannerState::SCAN_UPDOWNTRANS:
+      if (stateTimer > stateTime[(int)ScannerState::SCAN_UPDOWNTRANS]) {
         setState(ScannerState::SCAN_UP);
       }
       break;
     case ScannerState::SCAN_UP:
       scanUpLoop();
       break;
+    case ScannerState::SCAN_UPSHUFFTRANS:
+      break;
     case ScannerState::SHUFFLE_SCAN:
+      break;
+    case ScannerState::SCAN_SHUFFTOKTRANS:
       break;
     case ScannerState::TIKTOK_SCAN:
       break;
@@ -136,6 +144,7 @@ void loop() {
     // if it *was* touched and now *isnt*, alert!
     if (!(currTouched & _BV(i)) && (lastTouched & _BV(i)) ) {
       DEBUG_PRINT(i); DEBUG_PRINTLN(" released");
+      setState(ScannerState::IDLE);
       stopHandScan();
     }
   }
@@ -167,17 +176,25 @@ void setState(ScannerState newState) {
       startScanDown();
       stateString = "SCAN_DOWN";
       break;
-    case ScannerState::SCAN_TRANSITION:
+    case ScannerState::SCAN_UPDOWNTRANS:
       startScanTransition();
-      stateString = "SCAN_TRANSITION";
+      stateString = "SCAN_UPDOWNTRANS";
       break;
     case ScannerState::SCAN_UP:
       startScanUp();
       stateString = "SCAN_UP";
       break;
+    case ScannerState::SCAN_UPSHUFFTRANS:
+      startScanUp();
+      stateString = "SCAN_UPSHUFFTRANS";
+      break;
     case ScannerState::SHUFFLE_SCAN:
       startShuffleScan();
       stateString = "SHUFFLE_SCAN";
+      break;
+    case ScannerState::SCAN_SHUFFTOKTRANS:
+      startScanUp();
+      stateString = "SCAN_SHUFFTOKTRANS";
       break;
     case ScannerState::TIKTOK_SCAN:
       startTikTokScan();

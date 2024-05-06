@@ -13,9 +13,6 @@ elapsedMillis scannerAnimationTimer;
 
 long unsigned int nextFrameTime = 0;
 
-bool scanRunning = false;
-bool scanDirection = false; // False = scan downward; True = scan upward;
-
 void scannerSetup() {
 
   if (! ledDriver.begin(0x58)) {
@@ -52,7 +49,7 @@ void scanDownLoop() {
   if (scannerAnimationTimer > nextFrameTime && scanIndex < NUM_NOODS) {
     ledDriver.digitalWrite(indexToOuput[scanIndex], HIGH);
     scanIndex++;
-    if (scanIndex >= NUM_NOODS) { setState(ScannerState::SCAN_TRANSITION); return; }
+    if (scanIndex >= NUM_NOODS) { setState(ScannerState::SCAN_UPDOWNTRANS); return; }
     ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
     nextFrameTime = timingVector[scanIndex];
     scannerAnimationTimer = 0;
@@ -91,7 +88,6 @@ void startHandScanDown() {
   ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
   nextFrameTime = timingVector[scanIndex];
   scannerAnimationTimer = 0;
-  scanRunning = true;
 
 }
 
@@ -103,15 +99,12 @@ void startHandScanUp() {
   ledDriver.digitalWrite(indexToOuput[scanIndex], LOW);
   nextFrameTime = timingVector[scanIndex];
   scannerAnimationTimer = 0;
-  scanRunning = true;
 
 }
 
 void stopHandScan() {
 
   clearAllOutputs();
-
-  scanRunning = false;
 }
 
 
