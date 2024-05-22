@@ -6,6 +6,9 @@
 #include <Adafruit_IS31FL3731.h>
 #include <Adafruit_AW9523.h>
 #include "Adafruit_MPR121.h"
+#include "autonet.h"
+
+#include <SPI.h>
 
 
 #ifdef DEBUG
@@ -23,6 +26,41 @@
 
 Adafruit_IS31FL3731 matrix = Adafruit_IS31FL3731();
 Adafruit_MPR121 cap = Adafruit_MPR121();
+
+
+// MY network settings
+// ALWAYS EDIT
+IPAddress my_ip(10,32,16,33);                                 // Arduino/Teensy IP. Must be unique
+byte my_mac[] = {0x56, 0x5A, 0x69, 0x66, 0x66, 0x61};         // Arduino/Teebsy. Must be uniqe. https://miniwebtool.com/mac-address-generator/
+char my_name[50] = "2c0f57d0-ee22-4aa0-8184-d64c4f9ec0a1";    // Unique ID for each device. generate here https://www.uuidgenerator.net/version4
+const unsigned int  my_localPort = 6667;                      // Can be set in Jefe Device Qsys plugin. Default is 6667
+
+
+// Network settings for Jefe Show controller and redudant core (QSys Core 101 and 104)
+// SOMETIMES EDIT
+IPAddress jefe_ip(10, 32, 16, 10);          // Primary Core
+// IPAddress jefe_ip2(10, 32, 16, 13);      // Redundant Core
+IPAddress jefe_ip2(10, 32, 16, 14);         // Test Core
+const unsigned int jefe_port = 6666;        // Jefe Port 
+
+
+// Stuff we need if we're not on 10.32.16.*
+byte ddns[] =     {10, 32, 16, 1};
+byte *gateway =   ddns;
+byte subnet[] =   {255, 255, 240, 0};
+
+
+// Network settings for OSC messages. Typically Mac Mini Media Server (or OSC destination)
+// ALWAYS EDIT
+IPAddress remote_ip(10, 32, 70, 26);    // Audio recieving IP
+const unsigned int remote_port = 9000;   // receiving port 
+
+
+// Create your Autonet object, pass in the network settings from
+Autonet autonet(my_ip, my_mac, my_name, ddns, subnet, jefe_ip, jefe_port, jefe_ip2, jefe_port, 1);
+EthernetUDP Udp;
+int is_connected = 1;               // 0 = broken connection, 1 = connected. Not required, but can be handy
+
 
 
 typedef enum class ScannerState
@@ -52,12 +90,12 @@ uint16_t stateTime[] =
   10,               // SCAN_UPDOWNTRANS
   500,              // SCAN_UP
   500,              // SCAN_UPSHUFFTRANS
-  100,              // SHUFFLE_SCAN
+  10,               // SHUFFLE_SCAN
   500,              // SCAN_SHUFFTODEEP
   250,              // DEEP_SCAN
   500,              // SCAN_DEEPTOTIKTOK
   400,              // TIKTOK_SCAN
-  0,                // UNLOCKED
+  10000,            // UNLOCKED
   0,                // SUIT_SHOWCASE
   0                 // COOLDOWN
 };
@@ -71,7 +109,7 @@ ScannerState stateHistory[historyDepth];
 const uint8_t upDownCount = 1;
 uint8_t upDownCounter = 0;
 
-const uint8_t shuffleCount = 25;
+const uint8_t shuffleCount = 75;
 uint8_t shuffleCounter = 0;
 
 const uint8_t deepCount = 9;
@@ -89,6 +127,13 @@ uint16_t currTouched = 0;
 
 elapsedMillis stateTimer;
 
+elapsedMillis capTouchPollTimer;
+long unsigned int capTouchPollRate = 100;
+
+
+long unsigned int matrixRefreshRate = 30;
+int matrixMode = 3;
+int maxtrixRandomizer = 7;
 
 
 void setup() {
@@ -99,6 +144,8 @@ void setup() {
 
   scannerSetup();
 
+  matrixSetup();
+
 
   if (!cap.begin(0x5A)) {
     Serial.println("MPR121 not found, check wiring?");
@@ -106,6 +153,11 @@ void setup() {
   }
   Serial.println("MPR121 found!");
   cap.setThreshholds(3, 3);
+  capTouchPollTimer = 0;
+
+  Ethernet.begin(my_mac, my_ip, ddns, gateway, subnet);
+  Udp.begin(my_localPort);
+  autonet.setup(Udp);
 
 
   Serial.println("Hand Scanner Initialized");
@@ -113,6 +165,10 @@ void setup() {
 
 
 void loop() {
+
+  autonet.loop();
+
+  matrixLoop();
 
   switch (myState) {
     case ScannerState::IDLE:
@@ -155,7 +211,7 @@ void loop() {
         stateTimer = 0;
       }
       else if (deepCounter >= deepCount) {
-        setState(ScannerState::SCAN_DEEPTOTIKTOK);
+        setState(ScannerState::UNLOCKED);
       }
       break;
     case ScannerState::SCAN_DEEPTOTIKTOK:
@@ -172,6 +228,9 @@ void loop() {
       else if (tikTokCounter >= tikTokCount) { setState(ScannerState::UNLOCKED); }
       break;
     case ScannerState::UNLOCKED:
+      if (stateTimer > stateTime[(int)ScannerState::UNLOCKED]) {
+        setState(ScannerState::IDLE);
+      }
       break;
     case ScannerState::SUIT_SHOWCASE:
       break;
@@ -180,23 +239,46 @@ void loop() {
     default:
       break;
   }
-
-  // Get the currently touched pads
-  currTouched = cap.touched();
   
-  for (uint8_t i=0; i<12; i++) {
-    // it if *is* touched and *wasnt* touched before, alert!
-    if ((currTouched & _BV(i)) && !(lastTouched & _BV(i)) ) {
-      DEBUG_PRINT(i); DEBUG_PRINTLN(" touched");
-      setState(ScannerState::SCAN_DOWN);
+  if (capTouchPollTimer > capTouchPollRate) {
+
+    // Get the currently touched pads
+    currTouched = cap.touched();
+
+    // // Scan all Cap Touch Inputs for Changed state
+    // for (uint8_t i=0; i<12; i++) {
+    //   // it if *is* touched and *wasnt* touched before, alert!
+    //   if ((currTouched & _BV(i)) && !(lastTouched & _BV(i)) ) {
+    //     DEBUG_PRINT(i); DEBUG_PRINTLN(" touched");
+    //     setState(ScannerState::SCAN_DOWN);
+    //   }
+    //   // if it *was* touched and now *isnt*, alert!
+    //   if (!(currTouched & _BV(i)) && (lastTouched & _BV(i)) ) {
+    //     DEBUG_PRINT(i); DEBUG_PRINTLN(" released");
+    //     setState(ScannerState::IDLE);
+    //     stopHandScan();
+    //   }
+    // }
+
+    for (uint8_t i=0; i<2; i++) {
+      // it if *is* touched and *wasnt* touched before, alert!
+      if ((currTouched & _BV(i)) && !(lastTouched & _BV(i)) ) {
+        DEBUG_PRINT(i); DEBUG_PRINTLN(" touched");
+        setState(ScannerState::SCAN_DOWN);
+      }
+      // if it *was* touched and now *isnt*, alert!
+      if (!(currTouched & _BV(i)) && (lastTouched & _BV(i)) ) {
+        DEBUG_PRINT(i); DEBUG_PRINTLN(" released");
+        if (myState != ScannerState::UNLOCKED) {
+          setState(ScannerState::IDLE);
+          stopHandScan();
+        }
+      }
     }
-    // if it *was* touched and now *isnt*, alert!
-    if (!(currTouched & _BV(i)) && (lastTouched & _BV(i)) ) {
-      DEBUG_PRINT(i); DEBUG_PRINTLN(" released");
-      setState(ScannerState::IDLE);
-      stopHandScan();
-    }
+
+    capTouchPollTimer = 0;
   }
+  
 
   // reset our state
   lastTouched = currTouched;
@@ -287,8 +369,17 @@ void setState(ScannerState newState) {
 }
 
 
-void startIdle() {
+void sendOSCMessage(){
+  OSCMessage outMsg("/fp/spacesuittest");
+  //outMsg.add(doorbell);
+  is_connected = autonet.sendOSC(&outMsg, remote_ip, remote_port);
+}
 
+
+void startIdle() {
+  matrixRefreshRate = 30;
+  matrixMode = 3;
+  maxtrixRandomizer = 7;
 }
 
 
@@ -299,6 +390,8 @@ void startAttract() {
 
 void startScanDown() {
   //upDownCounter = 0;
+  matrixMode = 1;
+  matrixRefreshRate = 70;
   startHandScanDown();
 }
 
@@ -309,16 +402,22 @@ void startScanUpDownTransition() {
 
 
 void startScanUp() {
+  matrixMode = 1;
+  matrixRefreshRate = 30;
   startHandScanUp();
 }
 
 
 void startScanUpToShuffleTransition() {
+  matrixMode = 0;
   stateTimer = 0;
 }
 
 
 void startShuffleScan() {
+  matrixMode = 1;
+  matrixRefreshRate = 120;
+
   shuffleCounter = 0;
   startShuffleHandScan();
   stateTimer = 0;
@@ -326,11 +425,15 @@ void startShuffleScan() {
 
 
 void startSuffleToDeepTransition() {
+  clearAllOutputs();
+  matrixMode = 0;
   stateTimer = 0;
 }
 
 
 void startDeepScan() {
+  matrixMode = 2;
+  matrixRefreshRate = 5;
   startDeepHandScan();
   deepCounter = 0;
 }
@@ -350,12 +453,19 @@ void startTikTokScan() {
 
 
 void startUnlocked() {
+  matrixMode = 3;
+  matrixRefreshRate = 30;
+  maxtrixRandomizer = 1;
 
+  clearAllOutputs();
+  stateTimer = 0;
+  
+  sendOSCMessage();
 }
 
 
 void startSuitShowcase() {
-
+  
 }
 
 
