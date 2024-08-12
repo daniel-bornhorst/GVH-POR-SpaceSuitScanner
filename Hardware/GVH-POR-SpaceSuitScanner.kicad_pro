@@ -175,7 +175,8 @@
         0.0,
         0.15,
         0.2,
-        0.254
+        0.254,
+        1.27
       ],
       "via_dimensions": [
         {
@@ -415,7 +416,7 @@
     "classes": [
       {
         "bus_width": 12,
-        "clearance": 0.1,
+        "clearance": 0.2,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
